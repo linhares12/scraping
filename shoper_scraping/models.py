@@ -1,7 +1,5 @@
 from django.db import models
 
-# Create your models here.
-
 class Departamento(models.Model):
     codigo = models.IntegerField()          # Código ID fornecido pela loja principal
     name = models.CharField(max_length=20)  # Nome do departamento

@@ -2,8 +2,6 @@ from django.shortcuts import render, HttpResponse
 from datetime import datetime
 import requests, json
 
-# Create your views here.
-
 def index(request):
     return HttpResponse("teste")
 
@@ -31,7 +29,6 @@ def atualiza_precos(request):
 
     for subdepartamento in subdepartamentos:
         print(subdepartamento['name'])
-    
     
 def get_csrf_token(session):
     """
@@ -65,6 +62,9 @@ def autentica(email, senha, csrf_token, session):
     return session.post(url, headers=headers, data=data, cookies=cookies)
 
 def get_user_token(session):
+    """
+    Obtém o Token de usuário para autenticação
+    """
     url = f'{scheme}://{host}/shop/is-client/?deviceUUID=66d3d4b7-6ae4-46b5-b498-75868413a151'
     headers = {
         'X-Requested-With': 'XMLHttpRequest',
@@ -73,6 +73,9 @@ def get_user_token(session):
     return json.loads(req.text)['userToken']
 
 def get_departamento(nome, user_token, session):
+    """
+    Retorna os departamentos disponíveis
+    """
     host_api = f'siteapi.{host}'
     url = f'{scheme}://siteapi.{host}/catalog/departments'
 
@@ -90,6 +93,9 @@ def get_departamento(nome, user_token, session):
     return ''
 
 def get_subdepartamentos_from_departamento(departamento_id, user_token, session):
+    """
+    Retorna os subdepartamentos (categorias) e todos os seus produtos
+    """
     all = 9999
     url = f'{scheme}://siteapi.{host}/catalog/departments/{departamento_id}?size={all}'
     headers = {
