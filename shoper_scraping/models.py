@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class Departamento(models.Model):
     codigo = models.IntegerField()          # Código ID fornecido pela loja principal
@@ -15,12 +16,6 @@ class Loja(models.Model):
     name = models.CharField(max_length=50)  # Nome da loja
     ehPrincipal = models.BooleanField()     # True = Loja Principal, False = Loja referência
 
-class Oferta(models.Model):
-    lastUpdate = models.DateTimeField()     # Última atualização
-    loja = models.ForeignKey(Loja, on_delete=models.CASCADE)    # Loja que está ofertando o produto
-    price = models.FloatField()             # Preço da loja de referência
-    savingPercentage = models.CharField(max_length=4, null=True)   # Taxa de desconto (apenas para loja principal)
-
 class Produto(models.Model):
     sku = models.CharField(max_length=10)       # Código interno do produto
     image = models.CharField(max_length=200)    # Imagem do produto
@@ -29,6 +24,9 @@ class Produto(models.Model):
     name = models.CharField(max_length=100)     # Nome do produto
     url = models.CharField(max_length=200)      # Url do produto
 
-class LinkOfertaProduto(models.Model):
-    produto = models.ForeignKey(Produto, on_delete=models.CASCADE)  # Produto
-    oferta = models.ForeignKey(Oferta, on_delete=models.CASCADE)    # Oferta de preço por alguma loja
+class Oferta(models.Model):
+    data_captura = models.DateTimeField(default=timezone.now())     # Última atualização
+    loja = models.ForeignKey(Loja, on_delete=models.CASCADE)        # Loja que está ofertando o produto
+    produto = models.ForeignKey(Produto, on_delete=models.CASCADE)  # Produto da oferta
+    price = models.FloatField()             # Preço da loja de referência
+    savingPercentage = models.CharField(max_length=4, null=True)   # Taxa de desconto (apenas para loja principal)

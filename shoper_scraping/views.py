@@ -1,10 +1,94 @@
 from django.shortcuts import render, HttpResponse
-from datetime import datetime
-import requests, json
+from django.http import FileResponse
+from shoper_scraping.models import *
+from unidecode import unidecode
+import pandas as pd
+import requests, json, csv
 
 def index(request):
     return HttpResponse("teste")
 
+### Exportação do Banco de Dados
+def assortment(request):
+    produtos = Produto.objects.all()
+    name = []
+    sku = []
+    department = []
+    category = []
+    url = []
+    image = []
+    price_to = []
+    discount = []
+    available = []
+    stock_qty = []
+    store = []
+    created_at = []
+    hour = []
+
+    for produto in produtos:
+        print(produto.name)
+        oferta = Oferta.objects.filter(produto=produto, loja__ehPrincipal=True)
+
+        url_string = 'https://programada.shopper.com.br/shop-cn/' + produto.url
+        available_string = 'S'
+        if produto.stock_qty <= 0:
+            available_string = 'N'
+        name.append(produto.name)
+        sku.append(produto.sku)
+        department.append(produto.subdepartamento.departamento.name)
+        category.append(produto.subdepartamento.name)
+        url.append(url_string)
+        image.append(produto.image)
+        price_to.append(oferta[0].price)
+        discount.append(oferta[0].savingPercentage)
+        available.append(available_string)
+        stock_qty.append(produto.stock_qty)
+        store.append(oferta[0].loja.name)
+        created_at.append(oferta[0].data_captura.date().strftime('%Y-%m-%d'))
+        hour.append(oferta[0].data_captura.time().strftime('%H:%M:%S'))
+        
+    data = {
+        'name': name,             # Nome do produto
+        'sku': sku,               # Código interno do produto
+        'department': department, # Departamento
+        'category': category,     # Categoria
+        'url': url,               # URL do produto
+        'image': image,           # Imagem do produto
+        'price_to': price_to,     # Preço por
+        'discount': discount,     # Desconto do produto
+        'available': available,   # S = Produto disponível e N = Produto indisponível
+        'stock_qty': stock_qty,   # Qtde de estoque do produto
+        'store': store,           # Loja principal
+        'created_at': created_at, # Data da captura
+        'hour': hour              # Hora da captura
+    }
+    df = pd.DataFrame(data)
+    df.to_csv('assortment.csv', sep=';', float_format='%.2f', encoding='iso-8859-1', index=False)
+    
+    response = FileResponse(open('assortment.csv', 'rb'))
+    return response
+
+def seller(request):
+    
+    data = {
+        'name': name,                       # Nome do produto
+        'sku': sku,                         # Código interno do produto
+        'department': department,           # Departamento
+        'category': category,               # Categoria
+        'seller_store': seller_store,       # Loja Principal
+        'seller_player': seller_player,     # Vendedor
+        'price_store': price_store,         # Preço da Loja principal
+        'price_player': price_player,       # Preço do vendedor
+        'discount_store': discount_store,   # Desconto do produto
+        'available': available,             # S = Produto Disponível e N = Produto Indisponível
+        'stock_qty': stock_qty,             # Qtde de Estoque do produto
+        'url': url,                         # URL do produto
+        'image': image,                     # Imagem do produto
+        'created_at': created_at,           # Data da captura
+        'hour': hour                        # Hora da captura
+    }
+
+### Importação ao Banco de Dados
 def atualiza_precos(request):
     """
     Consulta os preços e atualiza no banco de dados
@@ -27,9 +111,88 @@ def atualiza_precos(request):
     departamento = get_departamento('Alimentos', user_token, s)
     subdepartamentos = get_subdepartamentos_from_departamento(departamento['id'], user_token, s)    # recebe também os produtos de cada departamento
 
+    departamento_obj, departamento_created = Departamento.objects.get_or_create(
+        codigo = departamento['id'],
+        defaults = {
+            'name': departamento['name'],
+            'url': departamento['url']
+        }
+    )
+    if departamento_created:
+        print(f'Departamento {departamento_obj.name} cadastrado com sucesso.')
+
     for subdepartamento in subdepartamentos:
-        print(subdepartamento['name'])
-    
+        subdepartamento_obj, subdepartamento_created = SubDepartamento.objects.get_or_create(
+            codigo = subdepartamento['id'],
+            departamento = departamento_obj,
+            defaults = {
+                'name': subdepartamento['name'],
+                'url': subdepartamento['url']
+            }
+        )
+        if subdepartamento_created:
+            print(f'Subdepartamento {subdepartamento_obj.name} cadastrado.')
+
+        produtos = subdepartamento['products']
+        for produto in produtos:
+            produto_obj, produto_created = Produto.objects.get_or_create(
+                sku = produto['id'],
+                subdepartamento = subdepartamento_obj,
+                defaults = {
+                    'name': produto['name'],
+                    'url': produto['url'],
+                    'image': produto['image'],
+                    'stock_qty': produto['maxCartQuantity'],
+                }
+            )
+            if produto_created:
+                print(f'Produto {produto_obj.name} cadastrado.')
+
+            loja_obj, loja_created = Loja.objects.get_or_create(
+                name = 'Shopper',
+                defaults = {
+                    'ehPrincipal': True
+                }
+            )
+            if loja_created:
+                print(f'Loja {loja_obj.name} cadastrada.')
+
+            oferta_obj, oferta_created = Oferta.objects.update_or_create(
+                produto = produto_obj,
+                loja = loja_obj,
+                defaults = {
+                    'price': formata_preco(produto['price']),
+                    'savingPercentage': produto['savingPercentage']
+                }
+            )
+            if oferta_created:
+                print(f'Oferta {oferta_obj.price} - {oferta_obj.produto.name} cadastrada.')
+            else:
+                print(f'Oferta {oferta_obj.price} - {oferta_obj.produto.name} atualizada.')
+
+            ofertas = produto['merchants']
+            for oferta in ofertas:
+                loja_obj, loja_created = Loja.objects.get_or_create(
+                    name = oferta['name'],
+                    defaults = {
+                        'ehPrincipal': False
+                    }
+                )
+                if loja_created:
+                    print(f'Loja {loja_obj.name} cadastrada.')
+
+                oferta_obj, oferta_created = Oferta.objects.update_or_create(
+                    produto = produto_obj,
+                    loja = loja_obj,
+                    defaults = {
+                        'price': formata_preco(oferta['price']),
+                    }
+                )
+                if oferta_created:
+                    print(f'Oferta {oferta_obj.price} - {oferta_obj.produto.name} cadastrada.')
+                else:
+                    print(f'Oferta {oferta_obj.price} - {oferta_obj.produto.name} atualizada.')
+
 def get_csrf_token(session):
     """
     Obtém o CSRFToken para autenticação
@@ -103,3 +266,6 @@ def get_subdepartamentos_from_departamento(departamento_id, user_token, session)
     }
     req = session.get(url, headers=headers)
     return json.loads(req.text)['subdepartments']
+
+def formata_preco(valor):
+    return unidecode(valor[3:].replace(',','.'))
