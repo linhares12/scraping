@@ -1,3 +1,5 @@
 case/__pycache__/
 shoper_scraping/__pycache__/
 shoper_scraping/migrations/__pycache__/
+assortment.csv
+seller.csv
