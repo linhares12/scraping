@@ -1,5 +1,4 @@
 from django.db import models
-from django.utils import timezone
 
 class Departamento(models.Model):
     codigo = models.IntegerField()          # Código ID fornecido pela loja principal
@@ -25,7 +24,7 @@ class Produto(models.Model):
     url = models.CharField(max_length=200)      # Url do produto
 
 class Oferta(models.Model):
-    data_captura = models.DateTimeField(default=timezone.now())     # Última atualização
+    data_captura = models.DateTimeField()     # Última atualização
     loja = models.ForeignKey(Loja, on_delete=models.CASCADE)        # Loja que está ofertando o produto
     produto = models.ForeignKey(Produto, on_delete=models.CASCADE)  # Produto da oferta
     price = models.FloatField()             # Preço da loja de referência

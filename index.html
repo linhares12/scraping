@@ -1,0 +1,14 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+
+<table class="table">
+  <tr>
+    <td><a href="{% url 'atualiza_precos' %}" class="btn btn-default btn-block">Atualizar preços</a>
+  </tr>
+  <tr>
+    <td><a href="{% url 'assortment' %}" class="btn btn-default btn-block">assortment.csv</a></td>
+  </tr>
+  <tr>
+    <td><a href="{% url 'seller' %}" class="btn btn-default btn-block ">seller.csv</a></td>
+  </tr>
+</table>

@@ -1,12 +1,15 @@
-from django.shortcuts import render, HttpResponse
+from django.shortcuts import render, HttpResponse, redirect
 from django.http import FileResponse
+from django.utils.timezone import get_current_timezone
+from django.utils import timezone
 from shoper_scraping.models import *
 from unidecode import unidecode
+from datetime import datetime
 import pandas as pd
 import requests, json, csv
 
 def index(request):
-    return HttpResponse("teste")
+    return render(request, 'index.html')
 
 ### Exportação do Banco de Dados
 def assortment(request):
@@ -152,12 +155,18 @@ def atualiza_precos(request):
 
     # requisições para consulta de produtos
     s = requests.Session()
+    print('Obtendo chaves necessárias para autenticação')
     csrf_token = get_csrf_token(s)
     autentica(email, senha, csrf_token, s)
     user_token = get_user_token(s)
 
     departamento = get_departamento('Alimentos', user_token, s)
-    subdepartamentos = get_subdepartamentos_from_departamento(departamento['id'], user_token, s)    # recebe também os produtos de cada departamento
+    try:
+        subdepartamentos = get_subdepartamentos_from_departamento(departamento['id'], user_token, s)    # recebe também os produtos de cada subdepartamento
+    except TypeError:
+        print(f'Não foi possível conectar ao {host}')
+        return redirect('index')
+    print('Autenticação concluída com sucesso.')
 
     departamento_obj, departamento_created = Departamento.objects.get_or_create(
         codigo = departamento['id'],
@@ -209,6 +218,7 @@ def atualiza_precos(request):
                 produto = produto_obj,
                 loja = loja_obj,
                 defaults = {
+                    'data_captura': datetime.now(tz=get_current_timezone()),
                     'price': formata_preco(produto['price']),
                     'savingPercentage': produto['savingPercentage']
                 }
@@ -233,6 +243,7 @@ def atualiza_precos(request):
                     produto = produto_obj,
                     loja = loja_obj,
                     defaults = {
+                        'data_captura': datetime.now(tz=get_current_timezone()),
                         'price': formata_preco(oferta['price']),
                     }
                 )
@@ -240,13 +251,17 @@ def atualiza_precos(request):
                     print(f'Oferta {oferta_obj.price} - {oferta_obj.produto.name} cadastrada.')
                 else:
                     print(f'Oferta {oferta_obj.price} - {oferta_obj.produto.name} atualizada.')
+    return redirect('index')
 
 def get_csrf_token(session):
     """
     Obtém o CSRFToken para autenticação
     """
     url = f'{scheme}://{host}/shpprtkn'
-    req = session.get(url)
+    try:
+        req = session.get(url)
+    except:
+        return ''
     return req.cookies['csrftoken']
 
 def autentica(email, senha, csrf_token, session):
@@ -270,7 +285,10 @@ def autentica(email, senha, csrf_token, session):
         'senha': senha,
     }
 
-    return session.post(url, headers=headers, data=data, cookies=cookies)
+    try:
+        return session.post(url, headers=headers, data=data, cookies=cookies)
+    except:
+        return ''
 
 def get_user_token(session):
     """
@@ -280,7 +298,10 @@ def get_user_token(session):
     headers = {
         'X-Requested-With': 'XMLHttpRequest',
     }
-    req = session.get(url, headers=headers)
+    try:
+        req = session.get(url, headers=headers)
+    except:
+        return ''
     return json.loads(req.text)['userToken']
 
 def get_departamento(nome, user_token, session):
@@ -294,7 +315,10 @@ def get_departamento(nome, user_token, session):
         'Authorization': f'Bearer {user_token}',
     }
 
-    req = session.get(url, headers=headers)
+    try:
+        req = session.get(url, headers=headers)
+    except:
+        return ''
     departamentos = json.loads(req.text)['departments']
 
     for departamento in departamentos:
@@ -312,7 +336,10 @@ def get_subdepartamentos_from_departamento(departamento_id, user_token, session)
     headers = {
     'Authorization': f'Bearer {user_token}',
     }
-    req = session.get(url, headers=headers)
+    try:
+        req = session.get(url, headers=headers)
+    except:
+        return ''
     return json.loads(req.text)['subdepartments']
 
 def formata_preco(valor):
