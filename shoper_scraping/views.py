@@ -69,7 +69,50 @@ def assortment(request):
     return response
 
 def seller(request):
-    
+    produtos = Produto.objects.all()
+    name = []
+    sku = []
+    department = []
+    category = []
+    seller_store = []
+    seller_player = []
+    price_store = []
+    price_player = []
+    discount_store = []
+    available = []
+    stock_qty = []
+    url = []
+    image = []
+    created_at = []
+    hour = []
+
+    for produto in produtos:
+        ofertas = Oferta.objects.filter(produto=produto)
+        oferta_principal = ofertas.filter(loja__ehPrincipal=True)[0]
+        for oferta in ofertas:
+            if oferta == oferta_principal:
+                continue
+            print(f'{oferta.loja.name} - {produto.name}: {oferta.price}')
+            url_string = 'https://programada.shopper.com.br/shop-cn/' + produto.url
+            available_string = 'S'
+            if produto.stock_qty <= 0:
+                available_string = 'N'
+            name.append(produto.name)
+            sku.append(produto.sku)
+            department.append(produto.subdepartamento.departamento.name)
+            category.append(produto.subdepartamento.name)
+            seller_store.append(oferta_principal.loja.name)
+            seller_player.append(oferta.loja.name)
+            price_store.append(oferta_principal.price)
+            price_player.append(oferta.price)
+            discount_store.append(oferta_principal.savingPercentage)
+            available.append(available_string)
+            stock_qty.append(produto.stock_qty)
+            url.append(url_string)
+            image.append(produto.image)
+            created_at.append(oferta.data_captura.date().strftime('%Y-%m-%d'))
+            hour.append(oferta.data_captura.time().strftime('%H:%M:%S'))
+
     data = {
         'name': name,                       # Nome do produto
         'sku': sku,                         # Código interno do produto
@@ -87,6 +130,11 @@ def seller(request):
         'created_at': created_at,           # Data da captura
         'hour': hour                        # Hora da captura
     }
+    df = pd.DataFrame(data)
+    df.to_csv('seller.csv', sep=';', float_format='%.2f', encoding='iso-8859-1', index=False)
+    
+    response = FileResponse(open('seller.csv', 'rb'))
+    return response
 
 ### Importação ao Banco de Dados
 def atualiza_precos(request):
